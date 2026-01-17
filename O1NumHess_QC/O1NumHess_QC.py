@@ -203,6 +203,8 @@ class O1NumHess_QC:
         delta: float,
         core: int,
         total_cores: Union[int, None],
+        task_name: str = "",
+        if_exists: str = "overwrite",
         dmax: float = 1.0,
         thresh_imag: float = 1e-8,
         has_g0: bool = False,
@@ -215,6 +217,7 @@ class O1NumHess_QC:
         interface with O1NH
         """
         # ========== initialize O1NH
+        kwargs_for_grad_func["task_name"] = task_name # both O1NH and grad_func need task_name
         o1nh = O1NumHess(
             x=self.xyz_bohr.reshape((self.xyz_bohr.size,)),
             grad_func=grad_func,
@@ -222,10 +225,12 @@ class O1NumHess_QC:
         )
         o1nh.setVerbosity(verbosity)
         # ========== use o1nh to calculate hessian
+        # use method as default task_name if not specified
+        checkpoint_task_name = task_name if task_name else method
         if method.casefold() == "single".casefold():
-            self.hessian = o1nh.singleSide(delta=delta, core=core, total_cores=total_cores)
+            self.hessian = o1nh.singleSide(delta=delta, core=core, total_cores=total_cores, task_name=checkpoint_task_name, if_exists=if_exists)
         elif method.casefold() == "double".casefold():
-            self.hessian = o1nh.doubleSide(delta=delta, core=core, total_cores=total_cores)
+            self.hessian = o1nh.doubleSide(delta=delta, core=core, total_cores=total_cores, task_name=checkpoint_task_name, if_exists=if_exists)
         elif method.casefold() == "o1numhess".casefold():
             self.thresh_imag = thresh_imag
             self.hessian = self.runO1NumHess(delta=delta, core=core, total_cores=total_cores,\
@@ -238,13 +243,13 @@ class O1NumHess_QC:
                      delta: float,
                      core: int,
                      total_cores: Union[int, None],
-                     o1nh,
+                     o1nh: O1NumHess,
                      config: str = "BDF",
                      dmax: float = 1.0,
                      has_g0: bool = False,
                      transinvar: bool = False,
                      rotinvar: bool = False,
-                     ):
+                     ) -> np.ndarray:
         """
         Prepare all the pre-requisites of o1nh.O1NumHess, and call it.
         """
@@ -262,7 +267,7 @@ class O1NumHess_QC:
             if transinvar:
                 if self.verbosity > 0:
                     print("Warning: there is only one atom. The Hessian is the zero matrix.")
-                self.hessian = np.zeros(3)
+                self.hessian: np.ndarray = np.zeros(3)
             else:
                 # If the user does not assume translational invariance, this may mean there
                 # is an external electric field etc. so that translational invariance is not
@@ -429,6 +434,7 @@ class O1NumHess_QC:
         encoding: str = "utf-8",
         tempdir: Union[Path, str] = "~/tmp",
         task_name: str = "",
+        if_exists: str = "overwrite",
         config_name: str = "",
         dmax: float = 1.0,
         thresh_imag: float = 1e-8,
@@ -466,6 +472,8 @@ class O1NumHess_QC:
             delta=delta,
             core=core,
             total_cores=total_cores,
+            task_name=task_name,
+            if_exists=if_exists,
             dmax=dmax,
             thresh_imag=thresh_imag,
             has_g0=has_g0,
@@ -477,7 +485,6 @@ class O1NumHess_QC:
                 "inp": inp,
                 "encoding": encoding,
                 "tempdir": tempdir,
-                "task_name": task_name,
                 "config_name": config_name,
             }
         )
@@ -625,6 +632,7 @@ class O1NumHess_QC:
         encoding: str = "utf-8",
         tempdir: Union[Path, str] = "~/tmp",
         task_name: str = "",
+        if_exists: str = "overwrite",
         config_name: str = "",
         dmax: float = 1.0,
         thresh_imag: float = 1e-8,
@@ -675,6 +683,8 @@ class O1NumHess_QC:
             delta=delta,
             core=core,
             total_cores=total_cores,
+            task_name=task_name,
+            if_exists=if_exists,
             dmax=dmax,
             thresh_imag=thresh_imag,
             has_g0=has_g0,
@@ -685,7 +695,6 @@ class O1NumHess_QC:
                 "inp": inp,
                 "encoding": encoding,
                 "tempdir": tempdir,
-                "task_name": task_name,
                 "config_name": config_name,
             }
         )
@@ -803,6 +812,7 @@ class O1NumHess_QC:
         # ========== generate new .sh file to run ORCA
         sh_out_path.write_text(config["bash"] + \
             dedent(f"""
+            rm -rf {tempdir}
             mkdir {tempdir}
             cp {inp_out_path} {tempdir}
             cp {xyz_out_path} {tempdir}
@@ -841,3 +851,4 @@ class O1NumHess_QC:
 
         return grad.reshape((self.xyz_bohr.size,))
 
+    # def toHessian(self):
