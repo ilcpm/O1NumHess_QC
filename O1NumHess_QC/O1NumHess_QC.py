@@ -148,7 +148,7 @@ class O1NumHess_QC:
         """
         read energy and gradient from BDF output .egrad1 file.
 
-        TODO 备注：BDF的输出单位
+        TODO Note: BDF output units
         """
         egrad1_path = getAbsPath(egrad1_path)
         if not egrad1_path.exists():
@@ -440,7 +440,7 @@ class O1NumHess_QC:
         rotinvar: bool = True,
     ) -> np.ndarray:
         """
-        TODO 备注：单位直接从inp文件中读取，无需传入
+        TODO Note: Units are read directly from inp file, no need to pass in
         """
         if self.verbosity > 2:
             print("Start calculating numerical Hessian (BDF)...")
@@ -499,21 +499,21 @@ class O1NumHess_QC:
         index: int,
         core: int,
         mem: str, # "1G"
-        inp: Union[str, Path], # TODO 备注：inp文件内部必须在“Geometry”块中包含file=xxx.xyz的写法，否则报错
+        inp: Union[str, Path], # TODO Note: inp file must contain "file=xxx.xyz" in "Geometry" block, otherwise error
         encoding: str = "utf-8",
         tempdir: Union[str, Path] = "~/tmp",
-        task_name: str = "", # TODO 备注：BDF的输入文件名（因为BDF的运行需要xyz和inp文件，但是两个文件的文件名可能不一致），如果未设置统一以inp的文件名做为任务名
-        config_name: str = "", # TODO 备注：BDF的配置文件名，如果不写，则以第一个配置文件为准，如果没有配置文件，报错
+        task_name: str = "", # TODO Note: BDF input filename (because BDF requires both xyz and inp files, but the two filenames may be inconsistent), if not set, use inp filename as task name
+        config_name: str = "", # TODO Note: BDF config filename, if not specified, use the first config file, if no config file exists, raise error
     ) -> np.ndarray:
         """
-        调用BDF计算一次梯度并读取结果
+        Call BDF to calculate gradient once and read the result
 
-        给定扰动后的x，（采用bohr作为单位），生成新的坐标XYZ文件
-        给定BDF计算的参数文件inp，（不要求在当前工作路径下），从中读取计算时采用的单位和参数，生成新的配置文件
-        生成调用BDF的.sh文件，并执行，执行完毕后读取.egrad1文件提取梯度
+        Given perturbed x (in Bohr units), generate new coordinate XYZ file
+        Given BDF calculation parameter file inp (not required to be in current working path), read calculation units and parameters from it, generate new config file
+        Generate .sh file to call BDF, execute it, and read .egrad1 file to extract gradient after completion
 
-        output to specified folder (not supported by BDF now) 受BDF限制，输出路径只能在当前文件夹
-        输出的梯度单位一定是Bohr，输出的形状是一维向量
+        output to specified folder (not supported by BDF now) - Due to BDF limitations, output path can only be in current folder
+        Output gradient units are always in Bohr, output shape is 1D vector
         """
         if self.verbosity > 4:
             print("Start calculating gradient %d"%index, flush=True)
@@ -632,7 +632,7 @@ class O1NumHess_QC:
         config_name: str = "",
     ) -> np.ndarray:
         """
-        并行的core参数写在inp文件里
+        The core parameter for parallelization is specified in the inp file
         """
         # ========== check params
         _ = getConfig("ORCA", config_name)
@@ -663,7 +663,7 @@ class O1NumHess_QC:
             print(" - Method: %s"%method)
             print(" - Step length: %e Bohr"%delta)
             print(" - Number of cores used in the calculation: %d"%core)
-            # print(" - Maximum memory per core: %s"%mem) # TODO 提前读取配置文件并得到信息
+            # print(" - Maximum memory per core: %s"%mem) # TODO Read config file in advance and get information
             print("")
             tstart = time.time()
 
