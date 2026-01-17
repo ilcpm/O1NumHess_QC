@@ -318,17 +318,14 @@ class O1NumHess_QC:
         if has_g0:
             if self.verbosity > 1:
                 print('Gradient at equilibrium geometry will be read from disk')
-            inp = getAbsPath(o1nh.kwargs["inp"])
-            task_name = inp.stem
             if config == "BDF":
+                inp = getAbsPath(o1nh.kwargs["inp"])
+                task_name = inp.stem
                 egrad1_in_path = getAbsPath(f"{task_name}.egrad1")
                 _, g0 = self._readEgrad1(egrad1_in_path)
-            elif config == "ORCA":
-                engrad_in_path = getAbsPath(f"{task_name}.engrad")
-                _, g0 = self._readEngrad(engrad_in_path)
+                g0 = g0.reshape((self.xyz_bohr.size,))
             else:
                 raise Exception('Unsupported config: %s'%config)
-            g0 = g0.reshape((self.xyz_bohr.size,))
         else:
             if self.verbosity > 1:
                 print('Evaluate gradient at equilibrium geometry...')
@@ -445,7 +442,7 @@ class O1NumHess_QC:
         """
         TODO 备注：单位直接从inp文件中读取，无需传入
         """
-        if self.verbosity > 1:
+        if self.verbosity > 2:
             print("Start calculating numerical Hessian (BDF)...")
             print("Parameters:")
             print(" - Method: %s"%method)
@@ -518,10 +515,8 @@ class O1NumHess_QC:
         output to specified folder (not supported by BDF now) 受BDF限制，输出路径只能在当前文件夹
         输出的梯度单位一定是Bohr，输出的形状是一维向量
         """
-        # we do not recommend going to such high verbosity, except for serial runs
-        # in parallel runs, the printout of different processes will mess up with each other
         if self.verbosity > 4:
-            print("Start calculating gradient %d"%index)
+            print("Start calculating gradient %d"%index, flush=True)
             tstart = time.time()
 
         # ========== check params
@@ -608,10 +603,11 @@ class O1NumHess_QC:
         energy, grad = self._readEgrad1(egrad1_in_path)
         assert grad.shape == self.xyz_bohr.shape, f"the grad shape from BDF output .egrad1 file: {egrad1_in_path} is {grad.shape}, different with the initial molecular shape {self.xyz_bohr.shape}"
 
+        if self.verbosity > 1:
+            print("Finished calculating gradient %d"%index, flush=True)
         # we do not recommend going to such high verbosity, except for serial runs
         # in parallel runs, the printout of different processes will mess up with each other
         if self.verbosity > 4:
-            print("Finished calculating gradient %d"%index)
             print("Energy: %.12f Hartree"%energy)
             print("Gradients in Hartree/Bohr:")
             n_atoms = len(self.atoms)
@@ -634,11 +630,6 @@ class O1NumHess_QC:
         task_name: str = "",
         if_exists: str = "overwrite",
         config_name: str = "",
-        dmax: float = 1.0,
-        thresh_imag: float = 1e-8,
-        has_g0: bool = False,
-        transinvar: bool = True,
-        rotinvar: bool = True,
     ) -> np.ndarray:
         """
         并行的core参数写在inp文件里
@@ -677,7 +668,7 @@ class O1NumHess_QC:
             tstart = time.time()
 
         # ========== interface with O1NH
-        hessian = self._O1NH(
+        return self._O1NH(
             grad_func=self._calcGrad_ORCA,
             method=method,
             delta=delta,
@@ -685,12 +676,6 @@ class O1NumHess_QC:
             total_cores=total_cores,
             task_name=task_name,
             if_exists=if_exists,
-            dmax=dmax,
-            thresh_imag=thresh_imag,
-            has_g0=has_g0,
-            transinvar=transinvar,
-            rotinvar=rotinvar,
-            verbosity=self.verbosity,
             **{
                 "inp": inp,
                 "encoding": encoding,
@@ -698,13 +683,6 @@ class O1NumHess_QC:
                 "config_name": config_name,
             }
         )
-
-        if self.verbosity > 1:
-            tend = time.time()
-            print('ORCA numerical Hessian done, total time: %.2f sec'%(tend-tstart))
-            print('calcHessian_ORCA terminated successfully')
-
-        return hessian
 
     def _calcGrad_ORCA(
         self,
@@ -717,12 +695,6 @@ class O1NumHess_QC:
         task_name: str = "",
         config_name: str = "",
     ) -> np.ndarray:
-        # we do not recommend going to such high verbosity, except for serial runs
-        # in parallel runs, the printout of different processes will mess up with each other
-        if self.verbosity > 4:
-            print("Start calculating gradient %d"%index)
-            tstart = time.time()
-
         # ========== check params
         config = getConfig("ORCA", config_name)
         assert 0 < core and isinstance(core, int)
@@ -835,11 +807,11 @@ class O1NumHess_QC:
         # ========== read result
         energy, grad = self._readEngrad(engrad_in_path)
         assert grad.size == self.xyz_bohr.size, f"the grad size from ORCA output .engrad file: {engrad_in_path} is {grad.size}, different with the initial molecular shape {self.xyz_bohr.size}"
-
+        if self.verbosity > 1:
+            print("Finished calculating gradient %d"%index, flush=True)
         # we do not recommend going to such high verbosity, except for serial runs
         # in parallel runs, the printout of different processes will mess up with each other
         if self.verbosity > 4:
-            print("Finished calculating gradient %d"%index)
             print("Energy: %.12f Hartree"%energy)
             print("Gradients in Hartree/Bohr:")
             n_atoms = len(self.atoms)
@@ -848,7 +820,6 @@ class O1NumHess_QC:
             tend = time.time()
             print("Total time: %.2f sec"%(tend-tstart)) # type: ignore
             print("")
-
         return grad.reshape((self.xyz_bohr.size,))
 
     # def toHessian(self):

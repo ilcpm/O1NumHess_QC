@@ -98,6 +98,9 @@ setup(
         # command run after installation
         'install': PostInstallCommand,
     },
-    install_requires=["numpy"],
+    install_requires=[
+        "numpy",
+        "O1NumHess @ git+https://github.com/ilcpm/O1NumHess.git",
+    ],
     python_requires=">=3.6",
 )

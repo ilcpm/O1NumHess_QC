@@ -6,6 +6,8 @@ Users can calculate the Hessian matrix of molecules by specifying the `.xyz` mol
 
 O1NumHess is unrelated to quantum chemistry and calculates the Hessian matrix by accepting a vector x and a user-provided gradient function g. O1NumHess perturbs each component of the input vector x separately, calls function g to calculate the gradient after each perturbation, and finally uses the gradients calculated from multiple perturbations to derive the Hessian.
 
+Details of the O1NumHess algorithm, as well as preliminary benchmark results, can be found in our preprint paper: https://arxiv.org/abs/2508.07544
+
 <!-- TODO 其他软件 O1的复杂度 -->
 
 ## requirement
