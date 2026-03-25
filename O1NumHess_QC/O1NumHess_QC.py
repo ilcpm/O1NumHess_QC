@@ -8,7 +8,8 @@ import re
 import time
 
 from O1NumHess import O1NumHess
-from .utils import *
+from .constants import angstrom2bohr, bohr2angstrom, periodic_table, vdw_radii
+from .geometry import bond, rotationGradient, symmetricBreathing, vecTransRot
 from .utils import getAbsPath, getConfig
 
 class O1NumHess_QC:
