@@ -13,6 +13,7 @@ from .geometry import bond, rotationGradient, symmetricBreathing, vecTransRot
 from .utils import getAbsPath, getConfig
 
 class O1NumHess_QC:
+    """Interface layer between O1NumHess and QC programs (like BDF/ORCA)."""
 
     def __init__(
         self,
@@ -21,6 +22,16 @@ class O1NumHess_QC:
         encoding: str = "utf-8",
         verbosity: int = 0,
     ):
+        """Initialize from a single-geometry XYZ file.
+
+        Args:
+            xyz_path (Union[str, Path]): Path to the XYZ file. ``~`` will be treated as user home.
+            unit (str): Coordinate unit in the input XYZ file (``"angstrom"`` or ``"bohr"``).
+            encoding (str): File encoding for the XYZ file.
+            verbosity (int): Verbosity level for runtime printouts.
+
+        TODO verbosity meanning
+        """
         self.verbosity = verbosity
         # read the XYZ file, get path, coordinates and atoms
         self.xyz_path, self.xyz_bohr, self.atoms = self._readXYZ(xyz_path, encoding, unit)
@@ -29,43 +40,71 @@ class O1NumHess_QC:
             print("Successfully read coordinates from %s" % self.xyz_path)
             print("Atomic coordinates in Bohr:")
             for i_atom in range(len(self.atoms)):
-                print("%5s %20.12f %20.12f %20.12f"%(self.atoms[i_atom], self.xyz_bohr[i_atom,0], \
-                    self.xyz_bohr[i_atom,1], self.xyz_bohr[i_atom,2]))
+                print(
+                    "%5s %20.12f %20.12f %20.12f"
+                    % (
+                        self.atoms[i_atom],
+                        self.xyz_bohr[i_atom, 0],
+                        self.xyz_bohr[i_atom, 1],
+                        self.xyz_bohr[i_atom, 2],
+                    )
+                )
 
         # generate atomic numbers, for future use
         self.atomic_num = self._atoms2AtomicNum(self.atoms)
 
     def setVerbosity(self, verbosity: int):
+        """Set the verbosity level. TODO verbosity meanning
+
+        Args:
+            verbosity (int): New verbosity level.
+        """
         self.verbosity = verbosity
 
     @property
     def xyz_angstrom(self) -> np.ndarray:
+        """Return coordinates in Angstrom.
+
+        Returns:
+            np.ndarray: Atomic coordinates in Angstrom with shape ``(N, 3)``.
+        """
         return self.xyz_bohr * bohr2angstrom
 
     @property
     def _effDistMat(self) -> np.ndarray:
-        """
-        Effective distance matrix.
-        Output: distmat(np.ndarray, dimensions(3*self.atoms.size,3*self.atoms.size))
-                The nine elements distmat([3*i:3*i+2,3*j:3*j+2]) are the same;
-                They are the distance between atoms i and j (Bohr) minus the sum of
-                their vdW radii
+        """Effective distance matrix.
+
+        Returns:
+            np.ndarray: distmat with dimensions ``(3*N, 3*N)``.
+                The nine elements ``distmat[3*i:3*i+3, 3*j:3*j+3]`` are the same;
+                they are the distance between atoms i and j (Bohr) minus the sum of
+                their vdW radii.
         """
         N = len(self.atoms)
-        distmat = np.zeros([3*N,3*N])
+        distmat = np.zeros([3 * N, 3 * N])
         for i in range(N):
-            for j in range(i,N):
-                R = bond(self.xyz_bohr,i,j) - vdw_radii[self.atomic_num[i]] - vdw_radii[self.atomic_num[j]]
-                distmat[3*i:3*i+3,3*j:3*j+3] = R
-                distmat[3*j:3*j+3,3*i:3*i+3] = R
+            for j in range(i, N):
+                R = (
+                    bond(self.xyz_bohr, i, j)
+                    - vdw_radii[self.atomic_num[i]]
+                    - vdw_radii[self.atomic_num[j]]
+                )
+                distmat[3 * i : 3 * i + 3, 3 * j : 3 * j + 3] = R
+                distmat[3 * j : 3 * j + 3, 3 * i : 3 * i + 3] = R
         return distmat
 
     @staticmethod
     def _atoms2AtomicNum(atoms: Tuple[str, ...]) -> np.ndarray:
-        """
-        Convert an array of element names to an array of atomic numbers.
-        Input: atoms (tuple, dimension (N), element names)
-        Output: atomic_num (np.array, dimension (N), atomic numbers)
+        """Convert element symbols to atomic numbers. (Start from 1)
+
+        Args:
+            atoms (Tuple[str, ...]): Element symbols with dimension (N).
+
+        Returns:
+            np.ndarray: Atomic numbers with dimension (N), in the same order as ``atoms``.
+
+        Raises:
+            ValueError: If an element symbol is unsupported.
         """
         N = len(atoms)
         atomic_num = np.zeros(N, dtype=int)
@@ -73,7 +112,7 @@ class O1NumHess_QC:
             try:
                 atomic_num[i] = periodic_table.index(atoms[i].capitalize())
             except (IndexError, ValueError):
-                raise ValueError("Unsupported element: %s"%atoms[i])
+                raise ValueError("Unsupported element: %s" % atoms[i])
         return atomic_num
 
     @staticmethod
@@ -82,20 +121,47 @@ class O1NumHess_QC:
         encoding: str = "utf-8",
         unit: str = "angstrom",
     ) -> Tuple[Path, np.ndarray, Tuple[str, ...]]:
-        """
-        Read atomic coordinates from an XYZ file into a numpy array. `~` will be treated as user home.
+        """Read atomic coordinates from an XYZ file into a numpy array. ``~`` will be treated as user home.
 
-        Return filepath, coordinates, atoms. Coordinates are in Bohr!
+        Return filepath, coordinates, atoms. Coordinates are in **Bohr**!
 
         There must be **only one** molecule in the file!
 
-        XYZ format:
+        XYZ format::
+
             <number of atoms>
             <comment (can be empty)>
             <symbol> <x> <y> <z>
             <symbol> <x> <y> <z>
             ...
-        """
+
+        Args
+        ----
+        path : Union[str, Path]
+            Path to the XYZ file. ``~`` is expanded.
+        encoding : str
+            File encoding.
+        unit : str
+            Input coordinate unit, ``"angstrom"`` or ``"bohr"``.
+
+        Returns
+        -------
+        path : Path
+            Absolute path to the XYZ file.
+        coordinates : np.ndarray
+            Atomic coordinates in **Bohr** with shape ``(N, 3)``.
+        atoms : Tuple[str, ...]
+            Element symbols with length ``N``.
+
+        Raises
+        ------
+        FileNotFoundError
+            If input file does not exist.
+        ValueError
+            If format or unit is invalid.
+        AssertionError
+            If file contains more than one structure.
+        """ # Only numpy-style docstrings can accommodate multiple return values.
         # unit
         if unit.casefold() not in ["angstrom".casefold(), "bohr".casefold()]:
             raise ValueError(f"unit must be 'angstrom' or 'bohr' (case insensitive), '{unit}' is given")
@@ -104,11 +170,15 @@ class O1NumHess_QC:
             isBohr = True
 
         # handle path
-        path = getAbsPath(path) # make path absolute
+        path = getAbsPath(path)  # make path absolute
         if not path.is_file():
             raise FileNotFoundError(f"input XYZ file {path} not exists or not a file")
         # read file, remove empty lines and strip whitespace, keep first 2 lines (second line may be empty)
-        lines = [line.strip() for i, line in enumerate(path.read_text(encoding).splitlines()) if i < 2 or line.strip()]
+        lines = [
+            line.strip()
+            for i, line in enumerate(path.read_text(encoding).splitlines())
+            if i < 2 or line.strip()
+        ]
 
         # parse number of atoms from the first line
         try:
@@ -120,8 +190,10 @@ class O1NumHess_QC:
 
         # Extract coordinates (skip the first two lines)
         try:
-            coordinates: np.ndarray = np.array([[float(s) for s in line.split()[1:]] for line in lines[2:]])
-            atoms = tuple(line.split()[0] for line in lines[2:]) # use tuple to make sure it is not editable
+            coordinates: np.ndarray = np.array(
+                [[float(s) for s in line.split()[1:]] for line in lines[2:]]
+            )
+            atoms = tuple(line.split()[0] for line in lines[2:])  # use tuple to make sure it is not editable
         except (IndexError, ValueError):
             raise ValueError("Could not parse XYZ file, the file may be incorrect")
         assert coordinates.shape == (n_atoms, 3), f"the coordinates shape {coordinates.shape} is incorrect"
@@ -132,25 +204,64 @@ class O1NumHess_QC:
         return path, coordinates, atoms
 
     @staticmethod
-    def _writeXYZ(xyz_bohr: np.ndarray, atoms: Sequence[str], path: Path, useBohr: bool=False, comment: str = "", encoding: str = "utf-8"):
+    def _writeXYZ(
+        xyz_bohr: np.ndarray,
+        atoms: Sequence[str],
+        path: Path,
+        useBohr: bool = False,
+        comment: str = "",
+        encoding: str = "utf-8",
+    ):
+        """Write an XYZ file from Bohr coordinates.
+
+        Args:
+            xyz_bohr (np.ndarray): Coordinates in Bohr with shape ``(N, 3)``.
+            atoms (Sequence[str]): Element symbols with length ``N``.
+            path (Path): Output file path.
+            useBohr (bool): Whether to write coordinates directly in Bohr.
+            comment (str): XYZ comment line.
+            encoding (str): File encoding.
+        """
         assert xyz_bohr.shape == (xyz_bohr.size // 3, 3) and xyz_bohr.shape[0] == len(atoms)
         xyz_out = xyz_bohr if useBohr else xyz_bohr * bohr2angstrom
-        xyz_str = f"{len(atoms)}\n" + \
-            comment.strip() + "\n" + \
-            "\n".join([
-                f"{atom:<3}{x:>26.13f}{y:>26.13f}{z:>26.13f}"
-                for atom, (x, y, z) in zip(atoms, xyz_out)] # type: ignore
-            ) + \
-            "\n"
+        xyz_str = (
+            f"{len(atoms)}\n"
+            + comment.strip() + "\n"
+            + "\n".join(
+                [
+                    f"{atom:<3}{x:>26.13f}{y:>26.13f}{z:>26.13f}"
+                    for atom, (x, y, z) in zip(atoms, xyz_out)
+                ]
+            )
+            + "\n"
+        )
         path.write_text(xyz_str, encoding)
 
     @staticmethod
     def _readEgrad1(egrad1_path: Union[str, Path]) -> Tuple[float, np.ndarray]:
-        """
-        read energy and gradient from BDF output .egrad1 file.
+        """Read energy and gradient from BDF output .egrad1 file.
 
         TODO Note: BDF output units
-        """
+
+        Args
+        ----
+        egrad1_path : Union[str, Path]
+            Input ``.egrad1`` file path.
+
+        Returns
+        -------
+        energy : float
+            Energy from the BDF output.
+        grad : np.ndarray
+            Gradient matrix with shape ``(N, 3)``.
+
+        Raises
+        ------
+        FileNotFoundError
+            If file does not exist.
+        ValueError
+            If file content cannot be parsed.
+        """ # Only numpy-style docstrings can accommodate multiple return values.
         egrad1_path = getAbsPath(egrad1_path)
         if not egrad1_path.exists():
             raise FileNotFoundError(f"BDF output .egrad1 file: {egrad1_path} not found, error may occurred during calculating")
@@ -159,15 +270,35 @@ class O1NumHess_QC:
         try:
             energy = float(lines[0].split()[-1])
             grad: np.ndarray = np.array([[float(s) for s in line.split()[1:]] for line in lines[2:]])
-            n_atoms = len(lines)-2
+            n_atoms = len(lines) - 2
             assert grad.shape == (n_atoms, 3)
             return energy, grad
         except (AssertionError, IndexError, ValueError):
             raise ValueError(f"Could not parse BDF output .egrad1 file: {egrad1_path}")
 
     @staticmethod
-    def _readEngrad(engrad_path: Union[str, Path]) ->  Tuple[float, np.ndarray]:
-        """TODO output dimension is 1"""
+    def _readEngrad(engrad_path: Union[str, Path]) -> Tuple[float, np.ndarray]:
+        """Read energy and gradient from ORCA output .engrad file.
+
+        Args
+        ----
+        engrad_path : Union[str, Path]
+            Input ``.engrad`` path.
+
+        Returns
+        -------
+        energy : float
+            Energy from the ORCA output.
+        grad : np.ndarray
+            Gradient vector (1D array).
+
+        Raises
+        ------
+        FileNotFoundError
+            If file does not exist.
+        ValueError
+            If file content cannot be parsed.
+        """ # Only numpy-style docstrings can accommodate multiple return values.
         engrad_path = getAbsPath(engrad_path)
         if not engrad_path.exists():
             raise FileNotFoundError(f"ORCA output .engrad file: {engrad_path} not found, error may occurred during calculating")
@@ -193,7 +324,7 @@ class O1NumHess_QC:
                     is_grad = True
             grad: np.ndarray = np.array(_grad)
             # print(grad)
-            return eng, grad # type: ignore
+            return eng, grad   # pyright: ignore[reportPossiblyUnboundVariable]
         except NameError:
             raise ValueError(f"Could not parse ORCA output .engrad file: {engrad_path}")
 
@@ -218,41 +349,61 @@ class O1NumHess_QC:
         interface with O1NH
         """
         # ========== initialize O1NH
-        kwargs_for_grad_func["task_name"] = task_name # both O1NH and grad_func need task_name
+        kwargs_for_grad_func["task_name"] = task_name  # both O1NH and grad_func need task_name
         o1nh = O1NumHess(
             x=self.xyz_bohr.reshape((self.xyz_bohr.size,)),
             grad_func=grad_func,
-            **kwargs_for_grad_func
+            **kwargs_for_grad_func,
         )
         o1nh.setVerbosity(verbosity)
         # ========== use o1nh to calculate hessian
         # use method as default task_name if not specified
         checkpoint_task_name = task_name if task_name else method
         if method.casefold() == "single".casefold():
-            self.hessian = o1nh.singleSide(delta=delta, core=core, total_cores=total_cores, task_name=checkpoint_task_name, if_exists=if_exists)
+            self.hessian = o1nh.singleSide(
+                delta=delta,
+                core=core,
+                total_cores=total_cores,
+                task_name=checkpoint_task_name,
+                if_exists=if_exists,
+            )
         elif method.casefold() == "double".casefold():
-            self.hessian = o1nh.doubleSide(delta=delta, core=core, total_cores=total_cores, task_name=checkpoint_task_name, if_exists=if_exists)
+            self.hessian = o1nh.doubleSide(
+                delta=delta,
+                core=core,
+                total_cores=total_cores,
+                task_name=checkpoint_task_name,
+                if_exists=if_exists,
+            )
         elif method.casefold() == "o1numhess".casefold():
             self.thresh_imag = thresh_imag
-            self.hessian = self.runO1NumHess(delta=delta, core=core, total_cores=total_cores,\
-                o1nh=o1nh, config="BDF", dmax=dmax, has_g0=has_g0, transinvar=transinvar, rotinvar=rotinvar)
+            self.hessian = self.runO1NumHess(
+                delta=delta,
+                core=core,
+                total_cores=total_cores,
+                o1nh=o1nh,
+                config="BDF",
+                dmax=dmax,
+                has_g0=has_g0,
+                transinvar=transinvar,
+                rotinvar=rotinvar,
+            )
         else:
             raise ValueError(f"method {method} is not supported, only supported 'single', 'double' and 'o1numhess'")
         return self.hessian
 
-    def runO1NumHess(self,
-                     delta: float,
-                     core: int,
-                     total_cores: Union[int, None],
-                     o1nh: O1NumHess,
-                     config: str = "BDF",
-                     dmax: float = 1.0,
-                     has_g0: bool = False,
-                     transinvar: bool = False,
-                     rotinvar: bool = False,
-                     ) -> np.ndarray:
-        """
-        Prepare all the pre-requisites of o1nh.O1NumHess, and call it.
+    def runO1NumHess(
+        self,
+        delta: float,
+        core: int,
+        total_cores: Union[int, None],
+        o1nh: O1NumHess,
+        config: str = "BDF",
+        dmax: float = 1.0,
+        has_g0: bool = False,
+        transinvar: bool = False,
+        rotinvar: bool = False,
+    ) -> np.ndarray:
         """
         from .Swart import Swart
 
@@ -287,7 +438,7 @@ class O1NumHess_QC:
 
         if self.verbosity > 1:
             tend = time.time()
-            print('Effective distance matrix done, total time: %.2f sec'%(tend-tstart))
+            print('Effective distance matrix done, total time: %.2f sec'%(tend-tstart)) # pyright: ignore[reportPossiblyUnboundVariable]
 
         # modified Swart model Hessian
         if self.verbosity > 1:
@@ -298,7 +449,7 @@ class O1NumHess_QC:
 
         if self.verbosity > 1:
             tend = time.time()
-            print('Swart Hessian done, total time: %.2f sec'%(tend-tstart))
+            print('Swart Hessian done, total time: %.2f sec'%(tend-tstart)) # pyright: ignore[reportPossiblyUnboundVariable]
 
         # the following displacement directions should be included regardless of the molecule:
         # (1) translations and rotations
@@ -332,7 +483,7 @@ class O1NumHess_QC:
                 print('Evaluate gradient at equilibrium geometry...')
                 tstart = time.time()
             # do a gradient calculation at the unperturbed geometry
-            if total_cores == None:
+            if total_cores is None:
                 total_cores0 = os.cpu_count()
                 if not isinstance(total_cores0, int):
                     total_cores0 = core
@@ -340,10 +491,10 @@ class O1NumHess_QC:
                 total_cores0 = total_cores
             # Use 6*N as the index, to avoid clashing with the calculations of
             # displaced geometries
-            g0 = o1nh.grad_func(self.xyz_bohr,6*N,total_cores0,**o1nh.kwargs)
+            g0 = o1nh.grad_func(self.xyz_bohr, 6 * N, total_cores0, **o1nh.kwargs)
             if self.verbosity > 1:
                 tend = time.time()
-                print('Gradient done, total time: %.2f sec'%(tend-tstart))
+                print('Gradient done, total time: %.2f sec'%(tend-tstart)) # pyright: ignore[reportPossiblyUnboundVariable]
                 if self.verbosity > 5:
                     print('Gradient at the equilibrium geometry:')
                     print(g0)
@@ -352,17 +503,17 @@ class O1NumHess_QC:
         # Note: g are not the gradients themselves, but are
         # ([gradients at displaced geometries] - g0)/delta, in the delta->0 limit
         # Translations: zero
-        g = np.zeros([3*N,Ntr])
+        g = np.zeros([3 * N, Ntr])
         # The gradients along the rotational directions are not zero when the geometry
         # is not an equilibrium geometry. We now account for this fact
         if rotinvar:
-            g[:,3:Ntr] = rotationGradient(self.xyz_bohr,g0,Ntr-3)
+            g[:, 3:Ntr] = rotationGradient(self.xyz_bohr, g0, Ntr - 3)
         if self.verbosity > 5:
             print('Gradient derivatives along the trans/rot directions:')
             print(g)
 
         # The only double-sided differentiation is along the symmetric breathing mode
-        doublesided = np.zeros(3*N, dtype = bool)
+        doublesided = np.zeros(3 * N, dtype=bool)
         doublesided[:] = False
         doublesided[Ntr] = True
 
@@ -372,13 +523,22 @@ class O1NumHess_QC:
             print("Stage 1: Initial estimation of the Hessian")
             tstart = time.time()
 
-        self.hessian, displdir, gout = o1nh.O1NumHess(core=core, delta=delta,\
-            total_cores=total_cores, dmax=dmax, distmat=distmat, \
-            H0=H0, displdir=displdir, g=g, g0=g0, doublesided=doublesided)
+        self.hessian, displdir, gout = o1nh.O1NumHess(
+            core=core,
+            delta=delta,
+            total_cores=total_cores,
+            dmax=dmax,
+            distmat=distmat,
+            H0=H0,
+            displdir=displdir,
+            g=g,
+            g0=g0,
+            doublesided=doublesided,
+        )
 
         if self.verbosity > 1:
             tend = time.time()
-            print('Stage 1 done, total time: %.2f sec'%(tend-tstart))
+            print('Stage 1 done, total time: %.2f sec'%(tend-tstart)) # pyright: ignore[reportPossiblyUnboundVariable]
 
         # (2) Check if there are imaginary modes
         if self.verbosity > 1:
@@ -388,31 +548,40 @@ class O1NumHess_QC:
         eigval, eigvec = np.linalg.eig(self.hessian)
 
         # append all imaginary modes (if there are any) to displdir
-        Nimag = np.sum(eigval<-self.thresh_imag)
+        Nimag = np.sum(eigval < -self.thresh_imag)
         if self.verbosity > 1:
-            print(" - %d imaginary mode(s) found"%Nimag)
+            print(" - %d imaginary mode(s) found" % Nimag)
             if self.verbosity > 5:
                 print("Negative eigenvalues of the Hessian:")
-                print(eigval[eigval<-self.thresh_imag])
+                print(eigval[eigval < -self.thresh_imag])
             tend = time.time()
-            print('Stage 2 done, total time: %.2f sec'%(tend-tstart))
-        if Nimag>3*N-displdir.shape[1]:
+            print('Stage 2 done, total time: %.2f sec' % (tend-tstart)) # pyright: ignore[reportPossiblyUnboundVariable]
+        if Nimag > 3 * N - displdir.shape[1]:
             # There are more imaginary frequencies than the number of remaining displacements.
             # In this case we only displace along the modes with the most negative eigenvalues.
-            Nimag = 3*N-displdir.shape[1]
+            Nimag = 3 * N - displdir.shape[1]
 
         # (3) Run O1NumHess again, with the imaginary modes added to the list of displacements
-        if Nimag>0:
+        if Nimag > 0:
             if self.verbosity > 1:
                 print("Stage 3: Displace along the imaginary modes")
             # We use the property that eigval is sorted in ascending order.
-            displdir = np.hstack((displdir, eigvec[:,0:Nimag]))
-            self.hessian, _, __ = o1nh.O1NumHess(core=core, delta=delta, \
-                total_cores=total_cores, dmax=dmax, distmat=distmat, \
-                H0=H0, displdir=displdir, g=gout, g0=g0, doublesided=doublesided)
+            displdir = np.hstack((displdir, eigvec[:, 0:Nimag]))
+            self.hessian, _, __ = o1nh.O1NumHess(
+                core=core,
+                delta=delta,
+                total_cores=total_cores,
+                dmax=dmax,
+                distmat=distmat,
+                H0=H0,
+                displdir=displdir,
+                g=gout,
+                g0=g0,
+                doublesided=doublesided,
+            )
             if self.verbosity > 1:
                 tend = time.time()
-                print('Stage 3 done, total time: %.2f sec'%(tend-tstart))
+                print('Stage 3 done, total time: %.2f sec' % (tend-tstart)) # pyright: ignore[reportPossiblyUnboundVariable]
         else:
             if self.verbosity > 1:
                 print("Skip stage 3 as there are no further displacements to be made")
@@ -425,10 +594,11 @@ class O1NumHess_QC:
         self,
         method: str,
         delta: float,
+        *,
         core: int,
         mem: str,
         total_cores: Union[int, None] = None,
-        inp: Union[str, Path] = ...,
+        inp: Union[str, Path],
         encoding: str = "utf-8",
         tempdir: Union[Path, str] = "~/tmp",
         task_name: str = "",
@@ -489,7 +659,7 @@ class O1NumHess_QC:
 
         if self.verbosity > 1:
             tend = time.time()
-            print('BDF numerical Hessian done, total time: %.2f sec'%(tend-tstart))
+            print('BDF numerical Hessian done, total time: %.2f sec'%(tend-tstart)) # pyright: ignore[reportPossiblyUnboundVariable]
             print('calcHessian_BDF terminated successfully')
 
         return hessian
@@ -522,8 +692,8 @@ class O1NumHess_QC:
 
         # ========== check params
         config = getConfig("BDF", config_name)
-        assert 0 < core and isinstance(core, int) # <= os.cpu_count()
-        inp =getAbsPath(inp)
+        assert 0 < core and isinstance(core, int)  # <= os.cpu_count()
+        inp = getAbsPath(inp)
         if not inp.is_file():
             raise FileNotFoundError(f"input .inp file: {inp} not exists or not a file")
         tempdir = getAbsPath(tempdir)
@@ -538,7 +708,7 @@ class O1NumHess_QC:
 
         # ========== generate filename for BDF files
         # print(Path("."))
-        suffix = str(index).zfill(len(str(x_bohr.size * 2))) # use index and x.size to generate a suffix with proper length
+        suffix = str(index).zfill(len(str(x_bohr.size * 2)))  # use index and x.size to generate a suffix with proper length
         task_name = f"{task_name}_{suffix}"     # name for current task instance
         tempdir = tempdir / task_name           # make tempdir for current task instance
         xyz_out_path = getAbsPath(f"{task_name}.xyz")
@@ -549,25 +719,30 @@ class O1NumHess_QC:
         # ========== generate new .inp file for BDF
         # read inp file, drop comments and right spaces
         inp_str = inp.read_text(encoding).splitlines()
-        inp_str = [line.rstrip() if "#" not in line else line.split("#")[0].rstrip() for line in inp_str if "#" not in line or line.split("#")[0].strip()]
+        inp_str = [
+            line.rstrip() if "#" not in line else line.split("#")[0].rstrip()
+            for line in inp_str
+            if "#" not in line or line.split("#")[0].strip()
+        ]
         # print("\n".join(inp_str))
 
         # find "unit"
         useBohr = False
-        for i in range(len(inp_str)-1):
-            if (inp_str[i].strip().casefold() == "Unit".casefold() and \
-                inp_str[i+1].strip().casefold() == "Bohr".casefold()
+        for i in range(len(inp_str) - 1):
+            if (
+                inp_str[i].strip().casefold() == "Unit".casefold()
+                and inp_str[i + 1].strip().casefold() == "Bohr".casefold()
             ) or inp_str[i].casefold().find("unit=bohr".casefold()) > -1:
                 useBohr = True
 
         # find the .xyz file line
         file_line = []
-        for i in range(1, len(inp_str)-1):
+        for i in range(1, len(inp_str) - 1):
             if (
-                inp_str[i-1].strip().casefold() == "Geometry".casefold() and \
-                inp_str[i].strip().casefold().startswith("file=".casefold()) and \
-                inp_str[i+1].strip().casefold() == "End geometry".casefold() and \
-                inp_str[i].strip()[5:] == self.xyz_path.name
+                inp_str[i - 1].strip().casefold() == "Geometry".casefold()
+                and inp_str[i].strip().casefold().startswith("file=".casefold())
+                and inp_str[i + 1].strip().casefold() == "End geometry".casefold()
+                and inp_str[i].strip()[5:] == self.xyz_path.name
                 # the filename must be equal with the xyz file
             ):
                 file_line.append(i)
@@ -605,17 +780,25 @@ class O1NumHess_QC:
         assert grad.shape == self.xyz_bohr.shape, f"the grad shape from BDF output .egrad1 file: {egrad1_in_path} is {grad.shape}, different with the initial molecular shape {self.xyz_bohr.shape}"
 
         if self.verbosity > 1:
-            print("Finished calculating gradient %d"%index, flush=True)
+            print("Finished calculating gradient %d" % index, flush=True)
         # we do not recommend going to such high verbosity, except for serial runs
         # in parallel runs, the printout of different processes will mess up with each other
         if self.verbosity > 4:
-            print("Energy: %.12f Hartree"%energy)
+            print("Energy: %.12f Hartree" % energy)
             print("Gradients in Hartree/Bohr:")
             n_atoms = len(self.atoms)
             for iatom in range(n_atoms):
-                print("%5s %20.12f %20.12f %20.12f"%(self.atoms[iatom], grad[iatom,0], grad[iatom,1], grad[iatom,2]))
+                print(
+                    "%5s %20.12f %20.12f %20.12f"
+                    % (
+                        self.atoms[iatom],
+                        grad[iatom, 0],
+                        grad[iatom, 1],
+                        grad[iatom, 2],
+                    )
+                )
             tend = time.time()
-            print("Total time: %.2f sec"%(tend-tstart)) # type: ignore
+            print("Total time: %.2f sec" % (tend - tstart)) # pyright: ignore[reportPossiblyUnboundVariable]
             print("")
 
         return grad.reshape((self.xyz_bohr.size,))
@@ -624,8 +807,9 @@ class O1NumHess_QC:
         self,
         method: str,
         delta: float,
+        *,
         total_cores: Union[int, None] = None,
-        inp: Union[str, Path] = ...,
+        inp: Union[str, Path],
         encoding: str = "utf-8",
         tempdir: Union[Path, str] = "~/tmp",
         task_name: str = "",
@@ -661,15 +845,15 @@ class O1NumHess_QC:
         if self.verbosity > 1:
             print("Start calculating numerical Hessian (ORCA)...")
             print("Parameters:")
-            print(" - Method: %s"%method)
-            print(" - Step length: %e Bohr"%delta)
-            print(" - Number of cores used in the calculation: %d"%core)
+            print(" - Method: %s" % method)
+            print(" - Step length: %e Bohr" % delta)
+            print(" - Number of cores used in the calculation: %d" % core)
             # print(" - Maximum memory per core: %s"%mem) # TODO Read config file in advance and get information
             print("")
             tstart = time.time()
 
         # ========== interface with O1NH
-        return self._O1NH(
+        hessian = self._O1NH(
             grad_func=self._calcGrad_ORCA,
             method=method,
             delta=delta,
@@ -684,6 +868,10 @@ class O1NumHess_QC:
                 "config_name": config_name,
             }
         )
+        if self.verbosity > 1:
+            print('ORCA numerical Hessian done, total time: %.2f sec' % (time.time()-tstart)) # pyright: ignore[reportPossiblyUnboundVariable]
+            print('calcHessian_ORCA terminated successfully')
+        return hessian
 
     def _calcGrad_ORCA(
         self,
@@ -696,6 +884,9 @@ class O1NumHess_QC:
         task_name: str = "",
         config_name: str = "",
     ) -> np.ndarray:
+        if self.verbosity > 4:
+            print("Start calculating gradient %d"%index, flush=True)
+            tstart = time.time()
         # ========== check params
         config = getConfig("ORCA", config_name)
         assert 0 < core and isinstance(core, int)
@@ -715,7 +906,7 @@ class O1NumHess_QC:
         # ========== generate filename and path for ORCA files
         # print(Path("."))
         cwd = getAbsPath(".")
-        suffix = str(index).zfill(len(str(x_bohr.size * 2))) # use index and x.size to generate a suffix with proper length
+        suffix = str(index).zfill(len(str(x_bohr.size * 2)))  # use index and x.size to generate a suffix with proper length
         task_name = f"{task_name}_{suffix}"     # name for current task instance
         tempdir = tempdir / task_name           # make tempdir for current task instance
         xyz_out_path = getAbsPath(f"{task_name}.xyz")
@@ -739,8 +930,8 @@ class O1NumHess_QC:
         pattern2 = r"(^\s*%\s*pal\s*nprocs\s*)(\d+)"
         if re.search(pattern1, inp_str, re.MULTILINE | re.IGNORECASE) is None and re.search(pattern2, inp_str, re.MULTILINE | re.IGNORECASE) is None:
             raise ValueError(f"inp file {inp} does not contain parallel information like 'PAL' or '%pal nprocs'")
-        inp_str = re.sub(pattern1, rf"\g<1>{core}", inp_str, flags=re.MULTILINE | re.IGNORECASE) # replace PAL
-        inp_str = re.sub(pattern2, rf"\g<1>{core}", inp_str, flags=re.MULTILINE | re.IGNORECASE) # replace nprocs
+        inp_str = re.sub(pattern1, rf"\g<1>{core}", inp_str, flags=re.MULTILINE | re.IGNORECASE)  # replace PAL
+        inp_str = re.sub(pattern2, rf"\g<1>{core}", inp_str, flags=re.MULTILINE | re.IGNORECASE)  # replace nprocs
         # print(inp_str)
 
         # find "unit", line like: ! xxxxxx Bohrs
@@ -758,7 +949,7 @@ class O1NumHess_QC:
 
         # ========== deal with .gbw files
         gbw_str_list = []
-        home_dir = inp.parent # find gwb files at the folder of inp file
+        home_dir = inp.parent  # find gbw files at the folder of inp file
         # 1. file with the same name of inp file will be copy as task_name.gbw
         gbw_in_path = getAbsPath(home_dir / f"{inp.stem}.gbw")
         gbw_out_path = getAbsPath(tempdir / f"{task_name}.gbw")
@@ -809,17 +1000,25 @@ class O1NumHess_QC:
         energy, grad = self._readEngrad(engrad_in_path)
         assert grad.size == self.xyz_bohr.size, f"the grad size from ORCA output .engrad file: {engrad_in_path} is {grad.size}, different with the initial molecular shape {self.xyz_bohr.size}"
         if self.verbosity > 1:
-            print("Finished calculating gradient %d"%index, flush=True)
+            print("Finished calculating gradient %d" % index, flush=True)
         # we do not recommend going to such high verbosity, except for serial runs
         # in parallel runs, the printout of different processes will mess up with each other
-        if self.verbosity > 4:
-            print("Energy: %.12f Hartree"%energy)
+        if self.verbosity > 4: # TODO try to fix this
+            print("Energy: %.12f Hartree" % energy)
             print("Gradients in Hartree/Bohr:")
             n_atoms = len(self.atoms)
             for iatom in range(n_atoms):
-                print("%5s %20.12f %20.12f %20.12f"%(self.atoms[iatom], grad[iatom,0], grad[iatom,1], grad[iatom,2]))
+                print(
+                    "%5s %20.12f %20.12f %20.12f"
+                    % (
+                        self.atoms[iatom],
+                        grad[iatom, 0],
+                        grad[iatom, 1],
+                        grad[iatom, 2],
+                    )
+                )
             tend = time.time()
-            print("Total time: %.2f sec"%(tend-tstart)) # type: ignore
+            print("Total time: %.2f sec" % (tend - tstart)) # pyright: ignore[reportPossiblyUnboundVariable]
             print("")
         return grad.reshape((self.xyz_bohr.size,))
 

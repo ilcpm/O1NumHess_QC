@@ -1,5 +1,7 @@
 """Geometry and mode-preprocessing helpers for QC Hessian workflows.
 
+Implemented by Zikuan Wang
+
 This module centralizes coordinate math and translational/rotational mode
 preprocessing, so ``O1NumHess_QC.py`` can focus on IO and workflow orchestration.
 """
@@ -14,7 +16,7 @@ def bond(xyz: np.ndarray, A: int, B: int) -> float:
     """Return the bond length between two atoms.
 
     Args:
-        xyz (np.ndarray): Cartesian coordinates with shape ``(natom, 3)``, in Bohr.
+        xyz (np.ndarray): Cartesian coordinates with shape ``(N, 3)``, in Bohr.
         A (int): Serial number of the first atom.
         B (int): Serial number of the second atom.
 
@@ -28,7 +30,7 @@ def angle(xyz: np.ndarray, A: int, B: int, C: int) -> float:
     """Return the A-B-C angle in radians.
 
     Args:
-        xyz (np.ndarray): Cartesian coordinates with shape ``(natom, 3)``, in Bohr.
+        xyz (np.ndarray): Cartesian coordinates with shape ``(N, 3)``, in Bohr.
         A (int): Serial number of the first atom.
         B (int): Serial number of the second atom.
         C (int): Serial number of the third atom.
@@ -45,7 +47,7 @@ def cosangle(xyz: np.ndarray, A: int, B: int, C: int) -> float:
     """Return the cosine of the A-B-C angle.
 
     Args:
-        xyz (np.ndarray): Cartesian coordinates with shape ``(natom, 3)``, in Bohr.
+        xyz (np.ndarray): Cartesian coordinates with shape ``(N, 3)``, in Bohr.
         A (int): Serial number of the first atom.
         B (int): Serial number of the second atom.
         C (int): Serial number of the third atom.
@@ -62,7 +64,7 @@ def dihedral(xyz: np.ndarray, A: int, B: int, C: int, D: int) -> float:
     """Return the signed A-B-C-D dihedral angle in radians.
 
     Args:
-        xyz (np.ndarray): Cartesian coordinates with shape ``(natom, 3)``, in Bohr.
+        xyz (np.ndarray): Cartesian coordinates with shape ``(N, 3)``, in Bohr.
         A (int): Serial number of the first atom.
         B (int): Serial number of the second atom.
         C (int): Serial number of the third atom.
@@ -92,7 +94,7 @@ def mominertia(xyz: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     Args
     ----
     xyz : np.ndarray
-        Cartesian coordinates with shape ``(natom, 3)``, in Bohr.
+        Cartesian coordinates with shape ``(N, 3)``, in Bohr.
 
     Returns
     -------
@@ -126,7 +128,7 @@ def isLinear(xyz: np.ndarray, thresh: float = 1e-4) -> bool:
     """Determine whether a molecule is linear.
 
     Args:
-        xyz (np.ndarray): Cartesian coordinates with shape ``(natom, 3)``, in Bohr.
+        xyz (np.ndarray): Cartesian coordinates with shape ``(N, 3)``, in Bohr.
         thresh (float): Threshold for the smallest eigenvalue of the moment of inertia tensor.
 
     Returns:
@@ -145,14 +147,14 @@ def vecTransRot(xyz: np.ndarray, thresh_lin: float = 1e-4) -> Tuple[np.ndarray, 
 
     Args
     ----
-        xyz (np.ndarray): Cartesian coordinates with shape ``(natom, 3)``, in Bohr.
+        xyz (np.ndarray): Cartesian coordinates with shape ``(N, 3)``, in Bohr.
         thresh_lin (float): Threshold for the smallest eigenvalue of the moment of
             inertia tensor; used for determining whether the molecule is linear.
 
     Returns
     -------
         P : np.ndarray
-            Projection vectors with shape ``(3*natom, 6)``. When the molecule is
+            Projection vectors with shape ``(3*N, 6)``. When the molecule is
             linear, ``P[:,5]`` is zero.
         Ntr : int
             Number of translations and rotations, either 5 or 6.
@@ -186,10 +188,10 @@ def symmetricBreathing(xyz: np.ndarray) -> np.ndarray:
     merely changes its size.
 
     Args:
-        xyz (np.ndarray): Cartesian coordinates with shape ``(natom, 3)``, in Bohr.
+        xyz (np.ndarray): Cartesian coordinates with shape ``(N, 3)``, in Bohr.
 
     Returns:
-        np.ndarray: Normalized mode vector with shape ``(3*natom,)``.
+        np.ndarray: Normalized mode vector with shape ``(3*N,)``.
     """
     _, __, barycen = mominertia(xyz)
     n_atom = xyz.shape[0]
@@ -211,13 +213,13 @@ def rotationGradient(xyz: np.ndarray, g0: np.ndarray, Nrot: int) -> np.ndarray:
     infinitesimal step length dx along the rotational axes, divided by dx.
 
     Args:
-        xyz (np.ndarray): Cartesian coordinates with shape ``(natom, 3)``, in Bohr.
+        xyz (np.ndarray): Cartesian coordinates with shape ``(N, 3)``, in Bohr.
             The caller must guarantee that there are at least 2 atoms.
-        g0 (np.ndarray): Gradients at the equilibrium geometry, with shape ``(3*natom,)``.
+        g0 (np.ndarray): Gradients at the equilibrium geometry, with shape ``(3*N,)``.
         Nrot (int): Number of rotational degrees of freedom, either 2 or 3.
 
     Returns:
-        np.ndarray: Gradient change vectors with shape ``(3*natom, Nrot)``.
+        np.ndarray: Gradient change vectors with shape ``(3*N, Nrot)``.
     """
     N = xyz.shape[0]
 
