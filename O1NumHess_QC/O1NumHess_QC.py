@@ -10,7 +10,8 @@ import time
 from O1NumHess import O1NumHess
 from .constants import angstrom2bohr, bohr2angstrom, periodic_table, vdw_radii
 from .geometry import bond, rotationGradient, symmetricBreathing, vecTransRot
-from .utils import getAbsPath, getConfig
+from .utils import getAbsPath, getConfig, check_config_exist
+
 
 class O1NumHess_QC:
     """Interface layer between O1NumHess and QC programs (like BDF/ORCA)."""
@@ -32,6 +33,15 @@ class O1NumHess_QC:
 
         TODO verbosity meanning
         """
+        # ================= check if config exists
+        if not check_config_exist():
+            raise FileNotFoundError(
+                "no config file found for any program,\n" +\
+                "\trun O1NumHess_QC.init_config() to initialize config,\n" +\
+                "refer to the document for details"
+            )
+
+        # ================= init
         self.verbosity = verbosity
         # read the XYZ file, get path, coordinates and atoms
         self.xyz_path, self.xyz_bohr, self.atoms = self._readXYZ(xyz_path, encoding, unit)

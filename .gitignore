@@ -1,3 +1,4 @@
 __pycache__/
 *.egg-info/
 build/*
+O1NumHess_QC/config/*

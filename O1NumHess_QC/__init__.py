@@ -1,5 +1,4 @@
-from .O1NumHess_QC import *
-from pathlib import Path
+from .O1NumHess_QC import O1NumHess_QC
+from .utils import init_config
 
-# TODO 首次运行时检测是否存在配置文件，若不存在，生成模版
-config_folder = Path("~/.O1NumHess_QC").expanduser().absolute()
+__all__ = ["O1NumHess_QC", "init_config"]
