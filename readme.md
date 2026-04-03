@@ -15,29 +15,35 @@ Details of the O1NumHess algorithm, as well as preliminary benchmark results, ca
 * Linux System
 * python >= 3.6
 * numpy
-* O1NumHess
-
-<!-- TODO link -->
+* [O1NumHess](https://github.com/ilcpm/O1NumHess)
 
 ## install
 
 ```bash
-python3 setup.py install
+pip install .
 ```
 
-this will create config files in `~/.O1NumHess_QC`, copy the files `xxx_config_example.py` to `xxx_config.py` and modify it with your own condition.
-
-Note that the above command installs the package for all users, and requires root privileges. If the user does not have access to root privileges, or if it is not desired to install the package for all users, then one should use the following command instead:
+Note that the above command installs the package for all users, and may requires root privileges. If the user does not have access to root privileges, or if it is not desired to install the package for all users, then one should use the following command instead:
 
 ```bash
-python3 setup.py install --prefix ~/.local
+pip install . --user
 ```
+
+## initialization of config file
+
+After installation, you need to initialize (generate) the config file by running the following command in the terminal:
+
+```bash
+python3 -c "from O1NumHess_QC import O1NumHess_QC; O1NumHess_QC.init_config()"
+```
+
+Following the instructions printed in the terminal and make choices, you will get the config file and edit it to add your own config. It's recommanded to create config file in user directory. This will create config files in `~/.O1NumHess_QC`, modify the files like `xxx_config.py` with your own condition.
+
+For details, see the [documentation](./doc/doc.md#initialization-of-config-file).
 
 ## example
 
-Detailed concept and instruction can be found in the documentation.
-
-<!-- TODO documentation link -->
+Detailed concept and instruction can be found in the [documentation](./doc/doc.md).
 
 Here is an example shows how to use O1NumHess_QC and BDF to calculate Hessian.
 

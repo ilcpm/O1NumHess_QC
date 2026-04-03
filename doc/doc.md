@@ -48,7 +48,7 @@ sequenceDiagram
 
 In short, O1NH will perturb the molecular coordinates multiple times, passing each perturbed coordinate to gradient function g, which then passes the `.inp` file to BDF for gradient calculation. Therefore, **users need to specify how gradients are calculated in the BDF `.inp` input file**.
 
-## Usage (with BDF versions released before July 2025, or with ORCA)
+## Install & Uninstall (with BDF versions released before July 2025, or with ORCA)
 
 ### Requirement
 
@@ -57,10 +57,42 @@ In short, O1NH will perturb the molecular coordinates multiple times, passing ea
 * numpy
 * O1NumHess
 
-### Install & Uninstall
+### Install
 
-<!-- TODO 配置文件相关的代码有待完善 -->
-<!-- root权限 -->
+just clone this repository, and run the command below in this project folder:
+
+```text
+pip install .
+```
+
+If you get permission error with the above command, or if you want to install for the current user only, try this below:
+
+```text
+pip install . --user
+```
+
+### Initialization of config file
+
+**Attention:** After installation, you need to initialize (generate) the config file using the following command in the terminal:
+
+```text
+python -c "import O1NumHess_QC;O1NumHess_QC.init_config()"
+```
+
+Then follow the instructions printed in the terminal and make choices to get the config file and edit it to add your own config. For details, see the "Config" section below.
+
+The config file is divided into system config file and user config file. The system config file is located in the package installation directory, while the user config file is located in the `.O1NumHess_QC` directory in the user's home directory. The program will first try to load the system config file (in this case, the user config file is ignored), if the system config file does not exist, then it will try to load the user config file. If both config files do not exist, an exception will be raised.
+
+**Note:** The system config file is reserved for special cases, and is generally not recommended for use. The user config file is the one that general users should use. Users can initialize the user config file (or the system config file, but not recommended) by calling the `O1NumHess_QC.init_config()` function. After initialization, users need to edit the config file to add their own config, and the format can be directly referred to the generated template file.
+
+### Uninstall
+
+If installed in the user directory, you need to manually delete the `.O1NumHess_QC` folder in the user directory when uninstalling, as the pip uninstall command cannot delete files in the user directory:
+
+```text
+pip uninstall O1NumHess_QC
+rm -rf ~/.O1NumHess_QC
+```
 
 ### Important Notes About Path
 
@@ -79,7 +111,7 @@ The tilde `~` will be expanded to the user's home directory.
 
 ### Config
 
-During installation, a configuration folder `~/.O1NumHess_QC` will be created, containing example configuration files `xxx_config_example.py` for related software, where `xxx` is BDF or ORCA (or other programs that may be supported in the future). Copy the files `xxx_config_example.py` to `xxx_config.py` and modify them according to your own conditions.
+After initialization, a configuration folder `~/.O1NumHess_QC` or `<lib_folder>/config` will be created, containing example configuration files `xxx_config.py` for related software, where `xxx` is BDF or ORCA (or other programs that may be supported in the future). Modify them according to your own conditions.
 
 Taking the BDF configuration file as an example, its filename is `BDF_config.py`, and the content is as follows:
 
@@ -159,6 +191,8 @@ Here is the main part of ORCA configuration:
 ```
 
 The `bash` part contains 2 parts: "openmpi" for parallel running and "ORCA" main part.
+
+## Usage (with BDF versions released before July 2025, or with ORCA)
 
 ### Initialization
 

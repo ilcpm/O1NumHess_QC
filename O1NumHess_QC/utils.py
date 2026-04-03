@@ -18,15 +18,9 @@ _user_config_dir = getAbsPath(Path("~/.O1NumHess_QC"))
 def getConfig(program: str, config_name: str = "") -> Dict[str, str]:
     """Load one config entry from the user config module.
 
-    配置文件分为系统配置文件和用户配置文件，系统配置文件位于包安装目录下，用户配置文件位于用户主目录下的 ``.O1NumHess_QC`` 目录下。程序会优先加载系统配置文件（此时用户配置文件无效），如果系统配置文件不存在，则加载用户配置文件。如果两个配置文件都不存在，则抛出异常。
-
-    系统配置文件专为特殊情况保留，通常情况不推荐使用，用户配置文件才是一般用户应该使用的配置文件。用户可以通过 ``O1NumHess_QC.init_config()`` 函数来初始化用户配置文件（也可以选择初始化系统配置文件，但不推荐）。初始化后，用户需要编辑配置文件来添加自己的配置，具体格式直接参考生成的模版文件。
-
-    English:
-
     The config file is divided into system config file and user config file. The system config file is located in the package installation directory, while the user config file is located in the ``.O1NumHess_QC`` directory in the user's home directory. The program will first try to load the system config file (in this case, the user config file is ignored), if the system config file does not exist, then it will try to load the user config file. If both config files do not exist, an exception will be raised.
 
-    The system config file is reserved for special cases, and is generally not recommended for use. The user config file is the one that general users should use. Users can initialize the user config file (or the system config file, but not recommended) by calling the ``O1NumHess_QC.init_config()`` function. After initialization, users need to edit the config file to add their own config, and the format can be directly referred to the generated template file.
+    **Note:** The system config file is reserved for special cases, and is generally not recommended for use. The user config file is the one that general users should use. Users can initialize the user config file (or the system config file, but not recommended) by calling the ``O1NumHess_QC.init_config()`` function. After initialization, users need to edit the config file to add their own config, and the format can be directly referred to the generated template file.
 
     Args:
         program (str): Program name, such as ``"BDF"`` or ``"ORCA"``.
