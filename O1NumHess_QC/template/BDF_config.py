@@ -1,4 +1,3 @@
-# copy and rename this file to `<program>_config.py` in the same folder,
 # modify and write your configs in it.
 from textwrap import dedent
 
