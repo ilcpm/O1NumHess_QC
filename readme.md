@@ -29,12 +29,14 @@ Note that the above command installs the package for all users, and may requires
 pip install . --user
 ```
 
+On systems with both Python 2 and Python 3, it may be necessary to use pip3 instead of pip, to make sure that the package is installed for Python 3.
+
 ## initialization of config file
 
 After installation, you need to initialize (generate) the config file by running the following command in the terminal:
 
 ```bash
-python3 -c "from O1NumHess_QC import O1NumHess_QC; O1NumHess_QC.init_config()"
+python3 -c "import O1NumHess_QC; O1NumHess_QC.init_config()"
 ```
 
 Following the instructions printed in the terminal and make choices, you will get the config file and edit it to add your own config. It's recommanded to create config file in user directory. This will create config files in `~/.O1NumHess_QC`, modify the files like `xxx_config.py` with your own condition.
