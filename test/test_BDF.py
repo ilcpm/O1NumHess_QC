@@ -117,6 +117,10 @@ class TestBDF(unittest.TestCase):
         return test_inp
 
     def test_BDF_Hessian(self):
+        """run the follow to test this function only:
+
+        python3 -m unittest test.test_BDF.TestBDF.test_BDF_Hessian -v
+        """
         cur_dir = Path(".").absolute()
         test_dir = Path("./test_BDF").absolute()
         os.makedirs(test_dir, exist_ok=True)
@@ -199,6 +203,9 @@ class TestBDF(unittest.TestCase):
                 inp = test_inp,
                 tempdir = "~/tmp",
                 config_name = "BDF",
+                task_name="test_BDF_Hessian",
+                keep_log=True,
+                # if_exists="ask",
             )
             print(hessian)
         finally:

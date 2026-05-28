@@ -347,6 +347,7 @@ class O1NumHess_QC:
         total_cores: Union[int, None],
         task_name: str = "",
         if_exists: str = "overwrite",
+        keep_log: bool = False,
         dmax: float = 1.0,
         thresh_imag: float = 1e-8,
         has_g0: bool = False,
@@ -376,6 +377,7 @@ class O1NumHess_QC:
                 total_cores=total_cores,
                 task_name=checkpoint_task_name,
                 if_exists=if_exists,
+                keep_log=keep_log,
             )
         elif method.casefold() == "double".casefold():
             self.hessian = o1nh.doubleSide(
@@ -384,6 +386,7 @@ class O1NumHess_QC:
                 total_cores=total_cores,
                 task_name=checkpoint_task_name,
                 if_exists=if_exists,
+                keep_log=keep_log,
             )
         elif method.casefold() == "o1numhess".casefold():
             self.thresh_imag = thresh_imag
@@ -391,8 +394,11 @@ class O1NumHess_QC:
                 delta=delta,
                 core=core,
                 total_cores=total_cores,
-                o1nh=o1nh,
                 config="BDF",
+                task_name=checkpoint_task_name,
+                if_exists=if_exists,
+                keep_log=keep_log,
+                o1nh=o1nh,
                 dmax=dmax,
                 has_g0=has_g0,
                 transinvar=transinvar,
@@ -407,8 +413,12 @@ class O1NumHess_QC:
         delta: float,
         core: int,
         total_cores: Union[int, None],
-        o1nh: O1NumHess,
+        *,
         config: str = "BDF",
+        task_name: str = "O1NumHess",
+        if_exists: str = "overwrite",
+        keep_log: bool = False,
+        o1nh: O1NumHess,
         dmax: float = 1.0,
         has_g0: bool = False,
         transinvar: bool = False,
@@ -437,7 +447,14 @@ class O1NumHess_QC:
                 # is an external electric field etc. so that translational invariance is not
                 # guaranteed.
                 # do a double-sided differentiation
-                self.hessian = o1nh.doubleSide(core=core, delta=delta, total_cores=total_cores)
+                self.hessian = o1nh.doubleSide(
+                    core=core,
+                    delta=delta,
+                    total_cores=total_cores,
+                    task_name=task_name,
+                    keep_log=keep_log,
+                    if_exists=if_exists,
+                )
             return self.hessian
 
         # effective distance matrix. Note that this is not simply the matrix of Cartesian
@@ -539,6 +556,9 @@ class O1NumHess_QC:
             core=core,
             delta=delta,
             total_cores=total_cores,
+            task_name=f"{task_name}_1",
+            if_exists=if_exists,
+            keep_log=True,
             dmax=dmax,
             distmat=distmat,
             H0=H0,
@@ -583,6 +603,9 @@ class O1NumHess_QC:
                 core=core,
                 delta=delta,
                 total_cores=total_cores,
+                task_name=f"{task_name}_2",
+                if_exists=if_exists,
+                keep_log=True,
                 dmax=dmax,
                 distmat=distmat,
                 H0=H0,
@@ -597,6 +620,12 @@ class O1NumHess_QC:
         else:
             if self.verbosity > 1:
                 print("Skip stage 3 as there are no further displacements to be made")
+
+        # ========== Delete task log folder
+        if not keep_log:
+            o1nh.deleteTaskDir(task_name=f"{task_name}_1")
+            if Nimag > 0:
+                o1nh.deleteTaskDir(task_name=f"{task_name}_2")
 
         if self.verbosity > 1:
             print("Exit runO1NumHess")
@@ -614,8 +643,9 @@ class O1NumHess_QC:
         encoding: str = "utf-8",
         tempdir: Union[Path, str] = "~/tmp",
         task_name: str = "",
-        if_exists: str = "overwrite",
         config_name: str = "",
+        if_exists: str = "overwrite",
+        keep_log: bool = False,
         dmax: float = 1.0,
         thresh_imag: float = 1e-8,
         has_g0: bool = False,
@@ -651,21 +681,22 @@ class O1NumHess_QC:
             method=method,
             delta=delta,
             core=core,
+            mem=mem,
             total_cores=total_cores,
-            task_name=task_name,
-            if_exists=if_exists,
+            inp=inp,
             dmax=dmax,
             thresh_imag=thresh_imag,
             has_g0=has_g0,
             transinvar=transinvar,
             rotinvar=rotinvar,
-            verbosity=self.verbosity,
             **{
-                "mem": mem,
-                "inp": inp,
                 "encoding": encoding,
                 "tempdir": tempdir,
+                "task_name": task_name,
                 "config_name": config_name,
+                "if_exists": if_exists,
+                "keep_log": keep_log,
+                "verbosity": self.verbosity,
             }
         )
 
@@ -825,8 +856,9 @@ class O1NumHess_QC:
         encoding: str = "utf-8",
         tempdir: Union[Path, str] = "~/tmp",
         task_name: str = "",
-        if_exists: str = "overwrite",
         config_name: str = "",
+        if_exists: str = "overwrite",
+        keep_log: bool = False,
     ) -> np.ndarray:
         """
         The core parameter for parallelization is specified in the inp file
@@ -871,13 +903,15 @@ class O1NumHess_QC:
             delta=delta,
             core=core,
             total_cores=total_cores,
-            task_name=task_name,
-            if_exists=if_exists,
+            inp=inp,
             **{
-                "inp": inp,
                 "encoding": encoding,
                 "tempdir": tempdir,
+                "task_name": task_name,
                 "config_name": config_name,
+                "if_exists": if_exists,
+                "keep_log": keep_log,
+                "verbosity": self.verbosity,
             }
         )
         if self.verbosity > 1:
@@ -1006,7 +1040,7 @@ class O1NumHess_QC:
         # cd to tempdir, calculate, del non-result file, copy the rest result file back
 
         # ========== calculate
-        os.system(f"bash {sh_out_path}")
+        os.system(f"bash {sh_out_path}") # "cd" in bash will not affect the current process, so we do not need to cd in Python
 
         # ========== read result
         energy, grad = self._readEngrad(engrad_in_path)
